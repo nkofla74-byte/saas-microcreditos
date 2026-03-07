@@ -377,11 +377,11 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <BottomNavigation 
-        activeTab={currentTab} 
-        setActiveTab={setCurrentTab} 
-        onOpenCredit={openCreditModal} 
-      />
+    <BottomNavigation 
+  activeTab={currentTab} 
+  setActiveTab={(tab: string) => setCurrentTab(tab as typeof currentTab)} 
+  onOpenCredit={openCreditModal} 
+/>
 
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-50 flex items-end sm:items-center justify-center">
