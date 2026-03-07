@@ -1,4 +1,13 @@
-import { IsUUID, IsInt, IsNotEmpty, IsEnum, IsOptional, IsDateString, IsString, Min } from 'class-validator';
+import {
+  IsUUID,
+  IsInt,
+  IsNotEmpty,
+  IsEnum,
+  IsOptional,
+  IsDateString,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export enum TransactionType {
   PAYMENT = 'payment',

@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  BadRequestException,
+} from '@nestjs/common';
 import { CreateRouteDto } from './dto/create-route.dto';
 import { UpdateRouteDto } from './dto/update-route.dto';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -11,7 +15,8 @@ export class RoutesService {
     const client = this.supabase.getClient();
 
     const { data: userData, error: userError } = await client.auth.getUser();
-    if (userError || !userData.user) throw new InternalServerErrorException('Error de sesión');
+    if (userError || !userData.user)
+      throw new InternalServerErrorException('Error de sesión');
 
     const { data: userRecord } = await client
       .from('users')
@@ -19,15 +24,16 @@ export class RoutesService {
       .eq('id', userData.user.id)
       .single();
 
-    if (!userRecord) throw new BadRequestException('Usuario no asociado a una empresa');
+    if (!userRecord)
+      throw new BadRequestException('Usuario no asociado a una empresa');
 
     const { data, error } = await client
       .from('routes')
       .insert([
-        { 
-          ...createRouteDto, 
-          tenant_id: userRecord.tenant_id 
-        }
+        {
+          ...createRouteDto,
+          tenant_id: userRecord.tenant_id,
+        },
       ])
       .select()
       .single();
@@ -39,7 +45,7 @@ export class RoutesService {
 
   async findAll() {
     const client = this.supabase.getClient();
-    
+
     // El RLS garantiza que solo devuelva las rutas del tenant actual
     const { data, error } = await client
       .from('routes')

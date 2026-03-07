@@ -13,33 +13,9 @@ export class ClientsService {
 
   constructor(private readonly supabase: SupabaseService) {}
 
-  // --- FUNCIÓN PRIVADA PARA OBTENER EL TENANT (REUTILIZABLE) ---
-  private async getTenantId() {
-    const client = this.supabase.getClient();
-    const { data: { user }, error: authError } = await client.auth.getUser();
-
-    if (authError || !user) {
-      throw new InternalServerErrorException('Sesión inválida o expirada');
-    }
-
-    const { data: userRecord, error: dbError } = await client
-      .from('users')
-      .select('tenant_id')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (dbError || !userRecord) {
-      this.logger.error(`Error obteniendo tenant para usuario ${user.id}`);
-      throw new BadRequestException('Usuario no asociado a una empresa');
-    }
-
-    return userRecord.tenant_id;
-  }
-
   // --- 1. CREAR CLIENTE ---
-  async create(createClientDto: CreateClientDto) {
+  async create(createClientDto: CreateClientDto, tenantId: string) {
     const client = this.supabase.getClient();
-    const tenantId = await this.getTenantId();
 
     const { data, error } = await client
       .from('clients')
@@ -54,7 +30,9 @@ export class ClientsService {
 
     if (error) {
       if (error.code === '23505') {
-        throw new BadRequestException('Ya existe un cliente con este documento en tu empresa');
+        throw new BadRequestException(
+          'Ya existe un cliente con este documento en tu empresa',
+        );
       }
       throw new InternalServerErrorException(error.message);
     }
@@ -62,10 +40,9 @@ export class ClientsService {
     return data;
   }
 
-  // --- 2. LISTAR TODOS (ORDENADOS POR PRIORIDAD/CREACIÓN) ---
-  async findAll() {
+  // --- 2. LISTAR TODOS ---
+  async findAll(tenantId: string) {
     const client = this.supabase.getClient();
-    const tenantId = await this.getTenantId();
 
     const { data, error } = await client
       .from('clients')
@@ -78,41 +55,38 @@ export class ClientsService {
   }
 
   // --- 3. BUSCAR POR ID ESPECÍFICO ---
-  async findOne(id: string) {
+  async findOne(id: string, tenantId: string) {
     const client = this.supabase.getClient();
     const { data, error } = await client
       .from('clients')
       .select('*')
       .eq('id', id)
+      .eq('tenant_id', tenantId) // 🔒 Seguridad añadida: Solo de tu empresa
       .single();
 
     if (error) throw new InternalServerErrorException(error.message);
     return data;
   }
 
-  // --- 4. VERIFICAR SI EXISTE POR DOCUMENTO (LÓGICA DE RIESGO) ---
-  async findByDocument(document: string) {
+  // --- 4. VERIFICAR SI EXISTE POR DOCUMENTO ---
+  async findByDocument(document: string, tenantId: string) {
     const client = this.supabase.getClient();
-    const tenantId = await this.getTenantId();
 
     const { data, error } = await client
       .from('clients')
       .select('id, name, document, status')
       .eq('document', document)
-      .eq('tenant_id', tenantId) // Seguridad: Solo en su empresa
+      .eq('tenant_id', tenantId)
       .maybeSingle();
 
     if (error) throw new InternalServerErrorException(error.message);
-    return data; 
+    return data;
   }
 
-  // --- 5. BUSCADOR FLEXIBLE (NOMBRE O CÉDULA) ---
-  async search(query: string) {
+  // --- 5. BUSCADOR FLEXIBLE ---
+  async search(query: string, tenantId: string) {
     const client = this.supabase.getClient();
-    const tenantId = await this.getTenantId();
 
-    // Buscamos coincidencias en documento o nombre
-    // Usamos .ilike para que no importe mayúsculas/minúsculas
     const { data, error } = await client
       .from('clients')
       .select('*')
@@ -125,6 +99,25 @@ export class ClientsService {
       throw new InternalServerErrorException('Error al realizar la búsqueda');
     }
 
+    return data;
+  }
+
+  // --- 6. ACTUALIZAR CLIENTE (Ej: Prioridad) ---
+  async update(id: string, updateData: any, tenantId: string) {
+    const client = this.supabase.getClient();
+
+    const { data, error } = await client
+      .from('clients')
+      .update(updateData)
+      .eq('id', id)
+      .eq('tenant_id', tenantId) // 🔒 Seguridad
+      .select()
+      .single();
+
+    if (error) {
+      this.logger.error(`Error actualizando cliente ${id}: ${error.message}`);
+      throw new InternalServerErrorException('Error al actualizar el cliente');
+    }
     return data;
   }
 }

@@ -1,4 +1,11 @@
-import { IsString, IsNumber, IsNotEmpty, IsDateString, IsOptional, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsNotEmpty,
+  IsDateString,
+  IsOptional,
+  IsEnum,
+} from 'class-validator';
 
 // Definimos las opciones válidas para la frecuencia de pago
 export enum PaymentFrequency {
