@@ -379,7 +379,7 @@ export default function DashboardPage() {
 
     <BottomNavigation 
   activeTab={currentTab} 
-  setActiveTab={(tab: string) => setCurrentTab(tab as typeof currentTab)} 
+setActiveTab={(tab: string) => setCurrentTab(tab as "inicio" | "listado" | "cliente" | "consultas")}
   onOpenCredit={openCreditModal} 
 />
 
