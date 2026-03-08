@@ -13,54 +13,58 @@ export class LoansService {
 
   constructor(private readonly supabase: SupabaseService) {}
 
-  // --- MOTOR DE FECHAS (Se mantiene igual, lógica pura de dominio) ---
-  private calculateEndDate(
-    startDateStr: string,
-    quotas: number,
-    frequency: PaymentFrequency,
-  ): string {
-    const date = new Date(startDateStr);
+  // --- MOTOR DE FECHAS (Saltando domingos) ---
+  private calculateEndDate(startDateStr: string, quotas: number): string {
+    const startDate = new Date(startDateStr);
+    let endDate = new Date(startDate);
+    let daysAdded = 0;
 
-    if (frequency === PaymentFrequency.DAILY) {
-      date.setDate(date.getDate() + quotas);
-    } else if (frequency === PaymentFrequency.WEEKLY) {
-      date.setDate(date.getDate() + quotas * 7);
-    } else if (frequency === PaymentFrequency.MONTHLY) {
-      date.setMonth(date.getMonth() + quotas);
+    while (daysAdded < quotas) {
+      endDate.setDate(endDate.getDate() + 1);
+      // Si no es domingo (0), contamos el día
+      if (endDate.getDay() !== 0) {
+        daysAdded++;
+      }
     }
-
-    return date.toISOString().split('T')[0];
+    return endDate.toISOString().split('T')[0];
   }
 
-  // --- 1. CREAR PRÉSTAMO ---
-  async create(createLoanDto: CreateLoanDto, tenantId: string) {
+  // --- 1. CREAR PRÉSTAMO (O RENOVACIÓN) ---
+  async create(createLoanDto: any, tenantId: string) {
     const client = this.supabase.getClient();
 
-    // Cálculos Financieros Matemáticos
-    const totalAmount = createLoanDto.quota_amount * createLoanDto.total_quotas;
-
-    if (totalAmount < createLoanDto.principal_amount) {
-      throw new BadRequestException(
-        'ERROR: El total a pagar es menor al capital prestado.',
-      );
-    }
+    const principal = createLoanDto.principal_amount;
+    const interest = createLoanDto.interest_rate; // ej. 20
+    const totalQuotas = createLoanDto.total_quotas;
+    
+    // Cálculos Financieros
+    const totalInterestAmount = Math.ceil(principal * (interest / 100));
+    const totalAmount = principal + totalInterestAmount;
+    const quotaAmount = Math.ceil(totalAmount / totalQuotas);
 
     const calculatedEndDate = this.calculateEndDate(
       createLoanDto.start_date,
-      createLoanDto.total_quotas,
-      createLoanDto.payment_frequency,
+      totalQuotas
     );
+
+    // TODO: Si implementas renew_from_loan_id, aquí actualizarías el préstamo anterior a 'renewed'
 
     const { data, error } = await client
       .from('loans')
       .insert([
         {
-          ...createLoanDto,
           tenant_id: tenantId,
+          client_id: createLoanDto.client_id,
+          route_id: createLoanDto.route_id, 
+          principal_amount: principal,
           total_amount: totalAmount,
-          end_date: calculatedEndDate,
           balance: totalAmount,
+          quota_amount: quotaAmount,
+          total_quotas: totalQuotas,
+          start_date: createLoanDto.start_date,
+          end_date: calculatedEndDate,
           status: 'active',
+          payment_frequency: createLoanDto.payment_frequency,
         },
       ])
       .select()
@@ -71,6 +75,16 @@ export class LoansService {
       throw new InternalServerErrorException('Error al registrar el crédito');
     }
 
+    // Registrar el desembolso en transacciones
+    await client.from('transactions').insert({
+        tenant_id: tenantId,
+        loan_id: data.id,
+        type: 'disbursement',
+        amount: principal,
+        description: 'Desembolso inicial',
+        offline_timestamp: new Date().toISOString()
+    });
+
     return data;
   }
 
@@ -80,12 +94,10 @@ export class LoansService {
 
     const { data, error } = await client
       .from('loans')
-      .select(
-        `
+      .select(`
         *,
-        clients ( name, document, whatsapp )
-      `,
-      )
+        clients ( name, document, whatsapp, priority )
+      `)
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false });
 
@@ -97,14 +109,15 @@ export class LoansService {
   async findOne(id: string, tenantId: string) {
     const client = this.supabase.getClient();
 
-const { data, error } = await client
+    const { data, error } = await client
       .from('loans')
       .select(`
         *,
         clients ( id, name, document, whatsapp, priority, address, latitude, longitude ) 
       `) 
+      .eq('id', id)
       .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false });
+      .single();
 
     if (error) {
       this.logger.error(`Error buscando préstamo ${id}: ${error.message}`);
