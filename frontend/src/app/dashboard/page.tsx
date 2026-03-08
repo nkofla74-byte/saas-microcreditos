@@ -18,6 +18,7 @@ import RouteProgress from '@/components/dashboard-cobrador/RouteProgress';
 import ReportsModal from '@/components/dashboard-cobrador/ReportsModal';
 import RoutingModal from '@/components/dashboard-cobrador/RoutingModal';
 import GastosModal from '@/components/dashboard-cobrador/GastosModal';
+import TotalizarModal from '@/components/dashboard-cobrador/TotalizarModal'; 
 
 // ─────────────────────────────────────────────────────────
 // ✅ FIX 1 + 2: Utilidad de fecha local
@@ -41,6 +42,8 @@ export default function DashboardPage() {
   const [showRouting,  setShowRouting]  = useState(false);
   const [showGastos,   setShowGastos]   = useState(false);
   const [showModal,    setShowModal]    = useState(false);
+  const [showTotalizar, setShowTotalizar] = useState(false); 
+  
 
   // ── DATOS PRINCIPALES ───────────────────────
   const [routeLoans, setRouteLoans] = useState<any[]>([]);
@@ -98,8 +101,9 @@ export default function DashboardPage() {
     }
   }, [fetchWithAuth]);
 
-  useEffect(() => { loadRoute(); }, [loadRoute]);
-
+// Al dejar los corchetes vacíos [], le decimos a React: "Solo ejecuta esto UNA VEZ al cargar la página"
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadRoute(); }, []);
   // ─────────────────────────────────────────────
   // ✅ FIX 2: CÁLCULO DE CUOTA Y FECHA FIN
   // Parseo manual evita el bug UTC al inicio.
@@ -827,6 +831,7 @@ const handleTopAction = (action: string) => {
       <ReportsModal  isOpen={showReports}  onClose={() => setShowReports(false)}  routeLoans={routeLoans} />
       <RoutingModal  isOpen={showRouting}  onClose={() => setShowRouting(false)}  routeLoans={routeLoans} onUpdatePriority={handleUpdatePriority} />
       <GastosModal   isOpen={showGastos}   onClose={() => setShowGastos(false)} />
+        <TotalizarModal isOpen={showTotalizar} onClose={() => setShowTotalizar(false)} /> {/* 👈 AÑADIR ESTA LÍNEA */}
     </div>
   );
 }

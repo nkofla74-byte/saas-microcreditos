@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { Session } from "@supabase/supabase-js";
+import { useCallback } from "react"; // 👈 AÑADIMOS ESTA IMPORTACIÓN
 
 // ─────────────────────────────────────────────────────────────
 // ✅ CAUSA RAÍZ DEL BUG:
@@ -60,7 +61,8 @@ const dispatchSessionExpired = () => {
 // ─────────────────────────────────────────────────────────────
 export const useApi = () => {
 
-  const fetchWithAuth = async (endpoint: string, options: RequestInit = {}) => {
+  // 👈 AQUÍ ESTÁ LA MAGIA: ENVOLVEMOS TODO EN useCallback
+  const fetchWithAuth = useCallback(async (endpoint: string, options: RequestInit = {}) => {
 
     // PASO 1: Esperar a que Supabase esté listo (solo en la primera llamada)
     await waitForAuthReady();
@@ -125,7 +127,7 @@ export const useApi = () => {
     if (!contentType?.includes("application/json")) return null;
 
     return response.json();
-  };
+  }, []); // 👈 ESTOS CORCHETES VACÍOS LE DICEN A REACT QUE NO RECREE LA FUNCIÓN NUNCA MÁS
 
   return { fetchWithAuth };
 };
